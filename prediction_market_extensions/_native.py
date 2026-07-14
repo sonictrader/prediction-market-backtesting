@@ -333,6 +333,16 @@ def float_seconds_to_ms_string(value: float) -> str:
     return str(module.float_seconds_to_ms_string(float(value)))
 
 
+def _nautilus_fixed_scalar() -> float:
+    # The Nautilus fixed-point scalar differs per installed wheel: 1e16 for
+    # high-precision builds (Linux/macOS default) and 1e9 for the
+    # standard-precision Windows wheels. Raw values must be built with the
+    # scalar of the wheel that consumes them via ``from_raw``.
+    from nautilus_trader.model.objects import FIXED_SCALAR
+
+    return float(FIXED_SCALAR)
+
+
 def fixed_raw_values(values: Sequence[object], precision: int) -> list[int]:
     module = _required_extension_module()
     return [
@@ -340,6 +350,7 @@ def fixed_raw_values(values: Sequence[object], precision: int) -> list[int]:
         for value in _required_native_function(module, "fixed_raw_values")(
             [float(value) for value in values],
             int(precision),
+            _nautilus_fixed_scalar(),
         )
     ]
 

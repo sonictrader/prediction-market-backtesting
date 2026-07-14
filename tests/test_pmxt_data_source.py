@@ -993,7 +993,8 @@ def test_runner_loader_honors_per_entry_explicit_source_order(monkeypatch) -> No
     )
     assert calls == [
         ("raw-remote", "https://first.archive.test"),
-        ("raw-local", "/tmp/local-a"),
+        # Path() renders with the platform separator (backslashes on Windows).
+        ("raw-local", str(Path("/tmp/local-a"))),
         ("raw-remote", "https://second.archive.test"),
     ]
 

@@ -693,7 +693,7 @@ def plot(
     """
     if not filename and not _is_notebook():
         filename = f"output/backtest_{result.strategy_name}_{result.platform.value}"
-    elif filename and not filename.startswith("output/") and not filename.startswith("/"):
+    elif filename and not filename.startswith("output/") and not os.path.isabs(filename):
         filename = f"output/{filename}"
     if filename:
         os.makedirs(os.path.dirname(filename) or "output", exist_ok=True)

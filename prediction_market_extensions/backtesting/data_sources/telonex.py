@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import os
 import re
-import resource
 import tempfile
 import threading
 import time
@@ -18,6 +17,11 @@ from io import BytesIO
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import HTTPRedirectHandler, Request, build_opener, urlopen
+
+try:
+    import resource
+except ImportError:  # Windows has no POSIX rlimits
+    resource = None  # type: ignore[assignment]
 
 import duckdb
 import numpy as np
@@ -141,6 +145,29 @@ def _unique_tmp_path(path: Path) -> Path:
     )
 
 
+def _replace_file_tolerating_concurrent_writer(tmp_path: Path, target_path: Path) -> None:
+    """``os.replace`` with tolerance for Windows sharing violations.
+
+    Concurrent cache writers replace unique temp files onto the same target.
+    On Windows the losing writer can hit a transient ``PermissionError`` while
+    the winner's replace is in flight; the target holds equivalent content
+    either way, so the loser discards its temp file instead of erroring.
+    """
+    last_error: PermissionError | None = None
+    for attempt in range(5):
+        try:
+            os.replace(tmp_path, target_path)
+            return
+        except PermissionError as exc:
+            last_error = exc
+            time.sleep(0.02 * (attempt + 1))
+    if target_path.exists():
+        tmp_path.unlink(missing_ok=True)
+        return
+    assert last_error is not None
+    raise last_error
+
+
 @dataclass(frozen=True)
 class TelonexSourceEntry:
     kind: str
@@ -213,6 +240,8 @@ def _resolve_file_workers() -> int:
 
 
 def _soft_open_file_limit() -> int | None:
+    if resource is None:
+        return None
     try:
         soft_limit, _hard_limit = resource.getrlimit(resource.RLIMIT_NOFILE)
     except (OSError, ValueError):
@@ -1891,9 +1920,12 @@ class RunnerPolymarketTelonexBookDataLoader(PolymarketDataLoader):
                         parquet_file = _cached_blob_parquet_file(
                             str(cache_path), _blob_file_cache_key(str(cache_path))
                         )
+                        row_groups = list(range(parquet_file.num_row_groups))
                     else:
-                        parquet_file = pq.ParquetFile(cache_path)
-                    row_groups = list(range(parquet_file.num_row_groups))
+                        # Close the handle before the finally-unlink below;
+                        # Windows cannot delete files with open handles.
+                        with pq.ParquetFile(cache_path) as parquet_file:
+                            row_groups = list(range(parquet_file.num_row_groups))
             except (OSError, ValueError, pa.ArrowInvalid, pa.ArrowIOError):
                 return None
             native_rows = telonex_parquet_book_snapshot_diff_rows(
@@ -2558,7 +2590,7 @@ class RunnerPolymarketTelonexBookDataLoader(PolymarketDataLoader):
                     tmp_path,
                     compression="zstd",
                 )
-                os.replace(tmp_path, cache_path)
+                _replace_file_tolerating_concurrent_writer(tmp_path, cache_path)
             del table
             _release_arrow_memory()
             self._emit_cache_write_event(
@@ -2718,7 +2750,7 @@ class RunnerPolymarketTelonexBookDataLoader(PolymarketDataLoader):
                     tmp_path,
                     compression="zstd",
                 )
-                os.replace(tmp_path, cache_path)
+                _replace_file_tolerating_concurrent_writer(tmp_path, cache_path)
             del table
             _release_arrow_memory()
             self._emit_cache_write_event(

@@ -306,9 +306,15 @@ def test_float_seconds_to_ms_string_matches_existing_pmxt_format() -> None:
 
 
 def test_fixed_raw_values_matches_existing_loader_rounding() -> None:
+    # Raw values scale with the installed wheel's fixed-point scalar (1e16 for
+    # high-precision builds, 1e9 for standard-precision Windows wheels), so the
+    # expectation is expressed relative to that scalar.
+    from nautilus_trader.model.objects import FIXED_SCALAR
+
+    scalar = int(FIXED_SCALAR)
     assert native.fixed_raw_values([0.105, 1009.1234564], 2) == [
-        1_000_000_000_000_000,
-        10_091_200_000_000_000_000,
+        scalar // 10,
+        1_009_120_000_000 * scalar // 1_000_000_000,
     ]
 
 

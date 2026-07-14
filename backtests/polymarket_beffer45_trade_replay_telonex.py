@@ -335,7 +335,7 @@ def run() -> None:
                     pnl_label="PnL (pUSD)",
                     market_key="sim_label",
                     summary_report=True,
-                    summary_report_path=str(_REPORT_PATH),
+                    summary_report_path=_REPORT_PATH.as_posix(),
                     summary_plot_panels=(
                         "total_equity",
                         "market_pnl",

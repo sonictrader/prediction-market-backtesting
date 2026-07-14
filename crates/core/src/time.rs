@@ -1,5 +1,4 @@
 const NANOS_PER_SECOND: i128 = 1_000_000_000;
-const NAUTILUS_FIXED_SCALAR: f64 = 10_000_000_000_000_000.0;
 
 pub fn decimal_seconds_to_ns(value: &str) -> Result<i128, String> {
     let trimmed = value.trim();
@@ -67,20 +66,33 @@ pub fn float_seconds_to_ms_string(value: f64) -> String {
     format!("{:.6}", value * 1000.0)
 }
 
-pub fn fixed_raw_values(values: &[f64], precision: u8) -> Result<Vec<i128>, String> {
+// The Nautilus fixed-point scalar differs per installed wheel (1e16 for
+// high-precision builds, 1e9 for standard-precision builds such as the
+// Windows wheels), so callers must pass the runtime scalar rather than
+// relying on a compile-time constant.
+pub fn fixed_raw_values(
+    values: &[f64],
+    precision: u8,
+    fixed_scalar: f64,
+) -> Result<Vec<i128>, String> {
+    if !fixed_scalar.is_finite() || fixed_scalar <= 0.0 {
+        return Err(format!(
+            "fixed-point scalar must be finite and positive: {fixed_scalar:?}"
+        ));
+    }
     let precision_factor = 10_f64.powi(i32::from(precision));
     values
         .iter()
-        .map(|value| fixed_raw_value(*value, precision_factor))
+        .map(|value| fixed_raw_value(*value, precision_factor, fixed_scalar))
         .collect()
 }
 
-fn fixed_raw_value(value: f64, precision_factor: f64) -> Result<i128, String> {
+fn fixed_raw_value(value: f64, precision_factor: f64, fixed_scalar: f64) -> Result<i128, String> {
     if !value.is_finite() {
         return Err(format!("fixed-point value must be finite: {value:?}"));
     }
     let rounded = (value * precision_factor).round_ties_even() / precision_factor;
-    let raw = (rounded * NAUTILUS_FIXED_SCALAR).round_ties_even();
+    let raw = (rounded * fixed_scalar).round_ties_even();
     if !raw.is_finite() {
         return Err(format!("fixed-point raw value must be finite: {value:?}"));
     }
@@ -164,8 +176,22 @@ mod tests {
     #[test]
     fn converts_fixed_raw_values_with_precision_rounding() {
         assert_eq!(
-            fixed_raw_values(&[0.105, 1009.1234564], 2).unwrap(),
+            fixed_raw_values(&[0.105, 1009.1234564], 2, 10_000_000_000_000_000.0).unwrap(),
             vec![1_000_000_000_000_000_i128, 10_091_200_000_000_000_000_i128]
         );
+    }
+
+    #[test]
+    fn converts_fixed_raw_values_with_standard_precision_scalar() {
+        assert_eq!(
+            fixed_raw_values(&[0.105, 1009.1234564], 2, 1_000_000_000.0).unwrap(),
+            vec![100_000_000_i128, 1_009_120_000_000_i128]
+        );
+    }
+
+    #[test]
+    fn rejects_non_positive_fixed_scalar() {
+        assert!(fixed_raw_values(&[0.105], 2, 0.0).is_err());
+        assert!(fixed_raw_values(&[0.105], 2, f64::NAN).is_err());
     }
 }

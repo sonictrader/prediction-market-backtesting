@@ -1,8 +1,15 @@
 from __future__ import annotations
 
+import shutil
 import subprocess
 from pathlib import Path
 
+import pytest
+
+pytestmark = pytest.mark.skipif(
+    shutil.which("make") is None,
+    reason="GNU make is not available (e.g. Windows); Makefile targets are POSIX-only",
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 

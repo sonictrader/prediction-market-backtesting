@@ -737,7 +737,7 @@ def _load_runner(backtest: dict[str, Any]) -> Any:
     module_name = backtest["module_name"]
     spec = importlib.util.spec_from_file_location(module_name, runner_path)
     if spec is None or spec.loader is None:
-        raise RuntimeError(f"could not import {relative_path}: no module spec")
+        raise RuntimeError(f"could not import {relative_path.as_posix()}: no module spec")
 
     module = importlib.util.module_from_spec(spec)
     prior_module = sys.modules.get(module_name)
@@ -748,7 +748,7 @@ def _load_runner(backtest: dict[str, Any]) -> Any:
         sys.modules[module_name] = module
         spec.loader.exec_module(module)
     except Exception as exc:
-        raise RuntimeError(f"could not import {relative_path}: {exc}") from exc
+        raise RuntimeError(f"could not import {relative_path.as_posix()}: {exc}") from exc
     finally:
         sys.path[:] = prior_sys_path
         if prior_module is None:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
 import importlib
 import threading
@@ -748,6 +749,10 @@ def test_telonex_onchain_fills_try_api_before_polymarket_fallback(
     )
 
 
+@pytest.mark.skipif(
+    shutil.which("make") is None,
+    reason="GNU make is not available (e.g. Windows); the clear target is POSIX-only",
+)
 def test_telonex_runner_api_downloads_cache_then_clear(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
