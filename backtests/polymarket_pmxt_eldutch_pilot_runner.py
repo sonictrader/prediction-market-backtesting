@@ -111,7 +111,7 @@ def run() -> None:
 
             experiment = build_replay_experiment(
                 name=f"eldutch_pilot_{event_slug}_{mode}",
-                description=f"Vanilla EL-DUTCH pilot on {event_slug} ({mode})",
+                description="Vanilla EL-DUTCH weekly-basket pilot on PMXT books",
                 data=MarketDataConfig(
                     platform=Polymarket,
                     data_type=Book,

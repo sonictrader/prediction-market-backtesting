@@ -40,6 +40,8 @@ EXPECTED_PUBLIC_RUNNER_PATHS = [
     Path("backtests/polymarket_btc_5m_late_favorite_taker_hold.py"),
     Path("backtests/polymarket_btc_5m_pair_arbitrage.py"),
     Path("backtests/polymarket_pmxt_book_100_replay_runner.py"),
+    Path("backtests/polymarket_pmxt_book_smoke_runner.py"),
+    Path("backtests/polymarket_pmxt_eldutch_pilot_runner.py"),
     Path("backtests/polymarket_telonex_book_100_replay_runner.py"),
     Path("backtests/polymarket_telonex_book_joint_portfolio_runner.py"),
     Path("backtests/telonex_book_joint_portfolio_runner.ipynb"),
