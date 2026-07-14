@@ -1,8 +1,8 @@
 # Codebase UML Inventory
 
 This file is generated from Python AST metadata and excludes `tests/` plus cache, virtualenv, and dot directories.
-Generated: 2026-07-14T15:42:05+00:00
-Modules: 137 | Classes: 181 | Functions/methods: 1903
+Generated: 2026-07-14T17:59:48+00:00
+Modules: 139 | Classes: 184 | Functions/methods: 1940
 
 ## Backtesting Data Flow
 
@@ -85,6 +85,12 @@ flowchart TD
 ### `backtests/polymarket_pmxt_book_smoke_runner.py`
 - Imports: `__future__, decimal`
 - Function L33: `run() -> None`
+
+### `backtests/polymarket_pmxt_eldutch_pilot_runner.py`
+- Imports: `__future__, datetime, json, os, pathlib`
+- Function L39: `_iso(ts: int) -> str`
+- Function L43: `_load_selections() -> list[dict]`
+- Function L53: `run() -> None`
 
 ### `backtests/polymarket_telonex_book_100_replay_runner.py`
 - Imports: `__future__, decimal`
@@ -2231,6 +2237,46 @@ flowchart TD
 - Class L88: `BookDeepValueHoldStrategy(_DeepValueHoldBase)`
   - Method L89: `_subscribe(self) -> None`
   - Method L95: `on_order_book(self, order_book) -> None`
+
+### `strategies/eldutch_basket.py`
+- Imports: `__future__, decimal, math, nautilus_trader`
+- Function L25: `_fee_for_leg(price: float, fee_rate: float) -> float`
+- Function L31: `_level_price(level: object) -> float | None`
+- Function L42: `_level_size(level: object) -> float`
+- Function L53: `considered_price(levels: list[object], *, dollar_bar: float, share_bar: float) -> tuple[float, float, str]`
+- Class L82: `ElDutchEventPortfolio`
+  - Method L93: `__init__(self, event_key: str) -> None`
+  - Method L100: `for_event(cls, event_key: str) -> ElDutchEventPortfolio`
+  - Method L107: `register(self, strategy: ElDutchBucketStrategy) -> None`
+  - Method L122: `entry_gate_ok(self, candidate: ElDutchBucketStrategy, candidate_price: float, *, max_net: float) -> bool`
+  - Method L143: `maybe_flash(self, ts_event_ns: int) -> None`
+- Class L183: `ElDutchBucketConfig(StrategyConfig)`
+  - Method L202: `__post_init__(self) -> None`
+- Class L215: `ElDutchBucketStrategy(Strategy)`
+  - Method L218: `__init__(self, config: ElDutchBucketConfig) -> None`
+  - Method L239: `position_size(self) -> float`
+  - Method L242: `avg_entry_price(self) -> float | None`
+  - Method L247: `last_best_bid(self) -> float | None`
+  - Method L250: `commit_price(self) -> float`
+  - Method L265: `on_start(self) -> None`
+  - Method L278: `on_order_book_deltas(self, deltas) -> None`
+  - Method L298: `_entry_window_open(self, ts_event_ns: int) -> bool`
+  - Method L307: `_ideal_entry_price(self) -> tuple[float | None, str]`
+  - Method L324: `_manage_buy_order(self, ts_event_ns: int) -> None`
+  - Method L350: `_patient_entry(self, ts_event_ns: int) -> None`
+  - Method L401: `_cancel_working(self, reason: str) -> None`
+  - Method L411: `_clear_working(self) -> None`
+  - Method L418: `_monitor_stop_loss(self) -> None`
+  - Method L445: `liquidate_for_flash(self) -> None`
+  - Method L456: `_submit_taker_sell(self, size: int, bid_price: float) -> None`
+  - Method L475: `on_order_accepted(self, event) -> None`
+  - Method L481: `on_order_filled(self, event) -> None`
+  - Method L510: `on_order_canceled(self, event) -> None`
+  - Method L515: `on_order_rejected(self, event) -> None`
+  - Method L520: `on_order_denied(self, event) -> None`
+  - Method L525: `on_order_expired(self, event) -> None`
+  - Method L530: `on_stop(self) -> None`
+  - Method L535: `on_reset(self) -> None`
 
 ### `strategies/ema_crossover.py`
 - Imports: `__future__, decimal, nautilus_trader, strategies, typing`
