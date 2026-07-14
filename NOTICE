@@ -31,7 +31,7 @@ provenance notices with file-specific change dates:
 - `backtests/polymarket_beffer45_trade_replay_telonex.py`
 - `backtests/polymarket_pmxt_book_100_replay_runner.py`
 - `backtests/polymarket_pmxt_book_smoke_runner.py`
-- `backtests/polymarket_pmxt_eldutch_pilot_runner.py`
+- `backtests/private/polymarket_pmxt_eldutch_pilot_runner.py`
 - `backtests/polymarket_telonex_book_100_replay_runner.py`
 - `backtests/polymarket_telonex_book_joint_portfolio_runner.py`
 - `prediction_market_extensions/adapters/kalshi/data.py`
