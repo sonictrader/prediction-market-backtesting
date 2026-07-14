@@ -6,7 +6,7 @@ from types import SimpleNamespace
 
 from nautilus_trader.core.rust.model import OrderType
 from nautilus_trader.model.currencies import pUSD
-from nautilus_trader.model.enums import LiquiditySide
+from nautilus_trader.model.enums import LiquiditySide, TimeInForce
 from nautilus_trader.model.objects import Currency
 
 from prediction_market_extensions.adapters.polymarket.loaders import PolymarketDataLoader
@@ -130,7 +130,7 @@ def test_infer_maker_rebate_rate_can_use_documented_fee_rate() -> None:
 
 def test_limit_orders_receive_polymarket_maker_rebate_credit() -> None:
     commission = PolymarketFeeModel().get_commission(
-        SimpleNamespace(order_type=OrderType.LIMIT),
+        SimpleNamespace(order_type=OrderType.LIMIT, time_in_force=TimeInForce.GTC),
         fill_qty=100,
         fill_px=0.5,
         instrument=SimpleNamespace(
@@ -145,7 +145,7 @@ def test_limit_orders_receive_polymarket_maker_rebate_credit() -> None:
 
 def test_limit_order_maker_rebates_can_be_disabled() -> None:
     commission = PolymarketFeeModel(maker_rebates_enabled=False).get_commission(
-        SimpleNamespace(order_type=OrderType.LIMIT),
+        SimpleNamespace(order_type=OrderType.LIMIT, time_in_force=TimeInForce.GTC),
         fill_qty=100,
         fill_px=0.5,
         instrument=SimpleNamespace(
@@ -156,6 +156,23 @@ def test_limit_order_maker_rebates_can_be_disabled() -> None:
     )
 
     assert commission.as_double() == 0.0
+
+
+def test_ioc_limit_orders_pay_polymarket_taker_fee() -> None:
+    # A LIMIT order that cannot rest (IOC/FOK) is a priced marketable order:
+    # its fills are taker fills and must pay the taker fee, not earn a rebate.
+    commission = PolymarketFeeModel().get_commission(
+        SimpleNamespace(order_type=OrderType.LIMIT, time_in_force=TimeInForce.IOC),
+        fill_qty=100,
+        fill_px=0.5,
+        instrument=SimpleNamespace(
+            info={"tags": ["Sports"]},
+            taker_fee=Decimal("0.003"),
+            quote_currency=pUSD,
+        ),
+    )
+
+    assert commission.as_double() == 0.075
 
 
 def test_market_orders_still_pay_polymarket_taker_fee() -> None:

@@ -23,7 +23,7 @@ from typing import Any
 
 from nautilus_trader.backtest.models import FeeModel
 from nautilus_trader.core.rust.model import OrderType
-from nautilus_trader.model.enums import LiquiditySide
+from nautilus_trader.model.enums import LiquiditySide, TimeInForce
 from nautilus_trader.model.objects import Money
 
 from prediction_market_extensions.adapters.polymarket.parsing import (
@@ -244,10 +244,15 @@ class PolymarketFeeModel(FeeModel):
         fill_quantity = Decimal(str(fill_qty))
         fill_price = Decimal(str(fill_px))
 
-        if order.order_type == OrderType.LIMIT:
+        if order.order_type == OrderType.LIMIT and getattr(order, "time_in_force", None) not in (
+            TimeInForce.IOC,
+            TimeInForce.FOK,
+        ):
             # The fee callback does not expose realized maker/taker liquidity.
-            # Repo-owned Polymarket book backtests use passive-posting limit
-            # orders, so treat their limit fills as maker-side rebates.
+            # Resting-capable limit fills (GTC/GTD) come from passive posting
+            # in repo-owned strategies, so they are treated as maker-side
+            # rebates. IOC/FOK limit fills can never rest - they are priced
+            # marketable (taker) orders and fall through to the taker fee.
             if not self._maker_rebates_enabled:
                 return Money(Decimal("0"), instrument.quote_currency)
 
