@@ -150,8 +150,10 @@ class ElDutchEventPortfolio:
 
         holdings_cost = 0.0
         net_proceeds = 0.0
-        any_position = False
+        n_holding = 0
+        min_filled_frac = 0.0
         for strategy in self._buckets.values():
+            min_filled_frac = float(strategy.config.flash_min_filled_frac)
             shares = strategy.position_size()
             if shares <= 0.0:
                 continue
@@ -159,13 +161,19 @@ class ElDutchEventPortfolio:
             best_bid = strategy.last_best_bid()
             if avg_entry is None:
                 continue
-            any_position = True
+            n_holding += 1
             holdings_cost += shares * avg_entry
             if best_bid is not None and best_bid > 0.0:
                 net_proceeds += (
                     shares * best_bid - _fee_for_leg(best_bid, strategy.config.fee_rate) * shares
                 )
-        if not any_position or holdings_cost <= 0.0:
+        if n_holding == 0 or holdings_cost <= 0.0:
+            return
+        # Flash coverage gate (Ivo, 270.10): a +10% ROI on one stray bucket is
+        # noise, not a locked dutch spread - only arm the flash once at least
+        # this fraction of the selected basket is actually held. 0 = the
+        # as-implemented SM behavior (no gate).
+        if min_filled_frac > 0.0 and n_holding < min_filled_frac * len(self._buckets):
             return
         net_roi = (net_proceeds - holdings_cost) / holdings_cost
         flash_pct = None
@@ -192,6 +200,7 @@ class ElDutchBucketConfig(StrategyConfig, frozen=True):  # type: ignore[call-arg
     maker_reprice_dwell_secs: float = 15.0
     stop_loss_pct: float = 0.60
     flash_profit_pct: float = 0.10
+    flash_min_filled_frac: float = 0.0
     use_stop_loss: bool = True
     use_flash: bool = True
     fee_rate: float = 0.05
@@ -208,6 +217,10 @@ class ElDutchBucketConfig(StrategyConfig, frozen=True):  # type: ignore[call-arg
             raise ValueError(f"stop_loss_pct must be in (0, 1), got {self.stop_loss_pct}")
         if float(self.flash_profit_pct) <= 0.0:
             raise ValueError(f"flash_profit_pct must be > 0, got {self.flash_profit_pct}")
+        if not 0.0 <= float(self.flash_min_filled_frac) <= 1.0:
+            raise ValueError(
+                f"flash_min_filled_frac must be in [0, 1], got {self.flash_min_filled_frac}"
+            )
         if not 0.0 <= float(self.fee_rate) < 1.0:
             raise ValueError(f"fee_rate must be in [0, 1), got {self.fee_rate}")
 

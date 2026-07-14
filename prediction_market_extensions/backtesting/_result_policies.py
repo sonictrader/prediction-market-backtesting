@@ -228,6 +228,48 @@ def _add_series_delta_at_and_after(
     return updated.astype(float)
 
 
+def _joint_post_settlement_delta(
+    equity_series: pd.Series,
+    *,
+    timestamp: pd.Timestamp,
+    equity_adjustment: float,
+    cash_adjustment: float | None,
+) -> float:
+    """Choose the post-settlement delta for equity-like joint series.
+
+    Two engine behaviors exist after a market resolves inside the series:
+
+    - The position is DROPPED from engine equity without a cash credit
+      (series dips by the position's mark). The cash adjustment restores the
+      settled value.
+    - The position REMAINS marked to market until the window ends (this
+      repo's replay runners: strategies hold to resolution and settlement is
+      applied post-hoc). Adding the cash adjustment on top of the surviving
+      mark double-counts the position; only the equity adjustment (mark ->
+      settlement correction) is owed.
+
+    Discriminate at the settlement boundary: the underlying series drops by
+    ~the position mark (= cash_adjustment - equity_adjustment) in the first
+    case and stays put in the second. Ambiguity defaults to the equity
+    adjustment - the non-inflating choice.
+    """
+    if cash_adjustment is None:
+        return equity_adjustment
+    position_mark = cash_adjustment - equity_adjustment
+    if abs(position_mark) < 1e-12:
+        return equity_adjustment
+    if equity_series.empty:
+        return equity_adjustment
+    at_ts = _series_value_at_or_before(equity_series, timestamp)
+    post = equity_series.loc[equity_series.index > timestamp]
+    if at_ts is None or post.empty:
+        return equity_adjustment
+    drop = float(at_ts) - float(post.iloc[0])
+    if position_mark != 0.0 and (drop / position_mark) >= 0.5:
+        return cash_adjustment
+    return equity_adjustment
+
+
 def _add_settlement_delta_to_equity_like_series(
     series: pd.Series,
     *,
@@ -478,8 +520,11 @@ def apply_joint_portfolio_settlement_pnl(results: Results) -> Results:
         equity_adjustment = _coerce_float(result.get("settlement_equity_adjustment"))
         if equity_adjustment is not None and abs(equity_adjustment) > 1e-12:
             cash_adjustment = _coerce_float(result.get("settlement_cash_adjustment"))
-            post_settlement_adjustment = (
-                cash_adjustment if cash_adjustment is not None else equity_adjustment
+            post_settlement_adjustment = _joint_post_settlement_delta(
+                equity_series,
+                timestamp=timestamp,
+                equity_adjustment=equity_adjustment,
+                cash_adjustment=cash_adjustment,
             )
             equity_series = _add_settlement_delta_to_equity_like_series(
                 equity_series,

@@ -36,12 +36,14 @@ def _stub_bucket(
     best_bid: float | None = None,
     fee_rate: float = 0.05,
     flash_pct: float = 0.10,
+    flash_min_frac: float = 0.0,
 ) -> SimpleNamespace:
     return SimpleNamespace(
         config=SimpleNamespace(
             instrument_id=_instrument_id(instrument),
             fee_rate=fee_rate,
             flash_profit_pct=flash_pct,
+            flash_min_filled_frac=flash_min_frac,
         ),
         is_fresh=False,
         commit_price=lambda: commit,
@@ -144,6 +146,36 @@ def test_flash_triggers_on_fee_net_roi_and_latches() -> None:
     # latched: further checks never re-fire
     portfolio.maybe_flash(ts_event_ns=200_000_000_000)
     assert len(calls) == 2
+
+
+def test_flash_coverage_gate_blocks_partial_baskets() -> None:
+    # With min filled fraction 0.6 and only 1 of 2 buckets holding, the +15%
+    # ROI must NOT flash; once the second bucket holds, it fires.
+    portfolio = ElDutchEventPortfolio("flash-gate")
+    calls: list[str] = []
+    held = _stub_bucket(
+        instrument="H",
+        commit=0.20,
+        shares=50.0,
+        avg_entry=0.20,
+        best_bid=0.24,
+        flash_min_frac=0.6,
+    )
+    held.liquidate_for_flash = lambda: calls.append("H")
+    empty = _stub_bucket(instrument="E", commit=0.15, flash_min_frac=0.6)
+    empty.liquidate_for_flash = lambda: calls.append("E")
+    portfolio._buckets = {
+        held.config.instrument_id: held,
+        empty.config.instrument_id: empty,
+    }
+    portfolio.maybe_flash(ts_event_ns=100_000_000_000)
+    assert not portfolio.liquidating and not calls
+    # second bucket fills -> coverage 2/2 >= 0.6 -> flash fires
+    empty.position_size = lambda: 50.0
+    empty.avg_entry_price = lambda: 0.20
+    empty.last_best_bid = lambda: 0.24
+    portfolio.maybe_flash(ts_event_ns=100_000_000_000 + int(61e9))
+    assert portfolio.liquidating and sorted(calls) == ["E", "H"]
 
 
 def test_flash_respects_throttle_and_threshold() -> None:

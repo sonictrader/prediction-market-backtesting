@@ -235,6 +235,85 @@ def test_joint_portfolio_equity_carries_cash_payout_after_settlement() -> None:
     assert results[0]["joint_portfolio_pnl_series"][-1][1] == pytest.approx(0.22625)
 
 
+def test_joint_portfolio_settlement_keeps_marked_position_single_counted() -> None:
+    # Replay runners hold positions to resolution: engine equity KEEPS the
+    # position marked (~$1) through the window end and settlement is applied
+    # post-hoc. The post-settlement delta must then be the small mark->
+    # settlement correction, NOT the full cash payout on top of the
+    # surviving mark (which inflated equity curves by the position value).
+    result = apply_binary_settlement_pnl(
+        {
+            "pnl": -0.02375,
+            "realized_outcome": 1.0,
+            "fill_events": [
+                {
+                    "action": "buy",
+                    "side": "yes",
+                    "price": 0.95,
+                    "quantity": 5.0,
+                    "commission": 0.02375,
+                    "timestamp": "2026-04-01T00:04:50+00:00",
+                }
+            ],
+            "simulated_through": "2026-04-01T00:06:00+00:00",
+            "settlement_observable_time": "2026-04-01T00:05:00+00:00",
+            "market_close_time_ns": pd.Timestamp("2026-04-01T00:05:00+00:00").value,
+            "price_series": [
+                ("2026-04-01T00:04:30+00:00", 0.95),
+                ("2026-04-01T00:05:00+00:00", 0.99),
+            ],
+            "equity_series": [
+                ("2026-04-01T00:04:30+00:00", 1000.0),
+                ("2026-04-01T00:05:00+00:00", 1000.17625),
+                ("2026-04-01T00:06:00+00:00", 1000.17625),
+            ],
+            "cash_series": [
+                ("2026-04-01T00:04:30+00:00", 1000.0),
+                ("2026-04-01T00:05:00+00:00", 995.22625),
+                ("2026-04-01T00:06:00+00:00", 995.22625),
+            ],
+            "pnl_series": [
+                ("2026-04-01T00:04:30+00:00", 0.0),
+                ("2026-04-01T00:05:00+00:00", 0.17625),
+                ("2026-04-01T00:06:00+00:00", 0.17625),
+            ],
+            "joint_portfolio_equity_series": [
+                ("2026-04-01T00:04:30+00:00", 1000.0),
+                # position marked at 0.99 into settlement and KEPT after it
+                ("2026-04-01T00:05:00+00:00", 1000.17625),
+                ("2026-04-01T00:06:00+00:00", 1000.17625),
+            ],
+            "joint_portfolio_cash_series": [
+                ("2026-04-01T00:04:30+00:00", 1000.0),
+                ("2026-04-01T00:05:00+00:00", 995.22625),
+                ("2026-04-01T00:06:00+00:00", 995.22625),
+            ],
+            "joint_portfolio_pnl_series": [
+                ("2026-04-01T00:04:30+00:00", 0.0),
+                ("2026-04-01T00:05:00+00:00", 0.17625),
+                ("2026-04-01T00:06:00+00:00", 0.17625),
+            ],
+        }
+    )
+
+    # settlement 5.0 - 0.02375 commission = 4.97625 pnl; mark at 0.99 ->
+    # equity adj = 0.05, cash adj = 5.0
+    assert result["settlement_equity_adjustment"] == pytest.approx(0.05)
+    assert result["settlement_cash_adjustment"] == pytest.approx(5.0)
+
+    results = apply_joint_portfolio_settlement_pnl([result])
+
+    equity = dict(results[0]["joint_portfolio_equity_series"])
+    # settled account value = 1000 - 0.02375 + (5.0 - 4.75) = 1000.22625
+    assert equity["2026-04-01T00:05:00+00:00"] == pytest.approx(1000.22625)
+    assert equity["2026-04-01T00:06:00+00:00"] == pytest.approx(1000.22625)
+    assert max(value for _, value in results[0]["joint_portfolio_equity_series"]) == pytest.approx(
+        1000.22625
+    )
+    cash = dict(results[0]["joint_portfolio_cash_series"])
+    assert cash["2026-04-01T00:06:00+00:00"] == pytest.approx(1000.22625)
+
+
 def test_joint_portfolio_settlement_does_not_double_count_stale_position_value() -> None:
     result = apply_binary_settlement_pnl(
         {

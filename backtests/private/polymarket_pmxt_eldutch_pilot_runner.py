@@ -46,10 +46,13 @@ USE_STOP_LOSS = os.environ.get("ELDUTCH_USE_STOP_LOSS", "1").strip() not in {"0"
 USE_FLASH = os.environ.get("ELDUTCH_USE_FLASH", "1").strip() not in {"0", "false"}
 TARGET_SHARES = float(os.environ.get("TARGET_SHARES", "50"))
 CASH_MULT = float(os.environ.get("ELDUTCH_INITIAL_CASH_MULT", "2.0"))
+FLASH_MIN_FRAC = float(os.environ.get("ELDUTCH_FLASH_MIN_FRAC", "0"))
 OUTPUT_DIR = Path("output/eldutch_pilot")
 PMXT_LOCAL_MIRROR = "local:C:/hades-data/pmxt-mirror"
 
-MODE = f"wd{WINDOW_DAY}_sl{int(USE_STOP_LOSS)}_fl{int(USE_FLASH)}_lat{int(LATENCY_MS)}"
+MODE = f"wd{WINDOW_DAY}_sl{int(USE_STOP_LOSS)}_fl{int(USE_FLASH)}_lat{int(LATENCY_MS)}" + (
+    f"_flgate{int(FLASH_MIN_FRAC * 100)}" if FLASH_MIN_FRAC > 0 else ""
+)
 
 
 def _iso(ts: int) -> str:
@@ -134,6 +137,7 @@ def _run_single_event(sel: dict) -> None:
                     "target_shares": Decimal(int(TARGET_SHARES)),
                     "use_stop_loss": USE_STOP_LOSS,
                     "use_flash": USE_FLASH,
+                    "flash_min_filled_frac": FLASH_MIN_FRAC,
                     "fee_rate": sel.get("fee_rate", 0.05),
                     "activation_start_time_ns": sel["activation_ns"],
                     "market_close_time_ns": sel["close_ns"],
