@@ -314,6 +314,86 @@ def test_joint_portfolio_settlement_keeps_marked_position_single_counted() -> No
     assert cash["2026-04-01T00:06:00+00:00"] == pytest.approx(1000.22625)
 
 
+def test_joint_portfolio_settlement_pins_kept_position_despite_post_mark_drift() -> None:
+    # The engine keeps the position marked after resolution and the mark then
+    # FADES (post-resolution noise). The settled value is frozen: every point
+    # after the settlement timestamp must equal the settled account value,
+    # cancelling the drift point by point (a constant correction computed at
+    # the settlement moment would leak the drift into the curve).
+    result = apply_binary_settlement_pnl(
+        {
+            "pnl": -0.02375,
+            "realized_outcome": 1.0,
+            "fill_events": [
+                {
+                    "action": "buy",
+                    "side": "yes",
+                    "price": 0.95,
+                    "quantity": 5.0,
+                    "commission": 0.02375,
+                    "timestamp": "2026-04-01T00:04:50+00:00",
+                }
+            ],
+            "simulated_through": "2026-04-01T00:07:00+00:00",
+            "settlement_observable_time": "2026-04-01T00:05:00+00:00",
+            "market_close_time_ns": pd.Timestamp("2026-04-01T00:05:00+00:00").value,
+            "price_series": [
+                ("2026-04-01T00:04:30+00:00", 0.95),
+                ("2026-04-01T00:05:00+00:00", 0.99),
+                ("2026-04-01T00:06:00+00:00", 0.60),
+                ("2026-04-01T00:07:00+00:00", 0.90),
+            ],
+            "equity_series": [
+                ("2026-04-01T00:04:30+00:00", 1000.0),
+                ("2026-04-01T00:05:00+00:00", 1000.17625),
+                ("2026-04-01T00:06:00+00:00", 998.22625),
+                ("2026-04-01T00:07:00+00:00", 999.72625),
+            ],
+            "cash_series": [
+                ("2026-04-01T00:04:30+00:00", 1000.0),
+                ("2026-04-01T00:05:00+00:00", 995.22625),
+                ("2026-04-01T00:06:00+00:00", 995.22625),
+                ("2026-04-01T00:07:00+00:00", 995.22625),
+            ],
+            "pnl_series": [
+                ("2026-04-01T00:04:30+00:00", 0.0),
+                ("2026-04-01T00:05:00+00:00", 0.17625),
+                ("2026-04-01T00:06:00+00:00", -1.77375),
+                ("2026-04-01T00:07:00+00:00", -0.27375),
+            ],
+            "joint_portfolio_equity_series": [
+                ("2026-04-01T00:04:30+00:00", 1000.0),
+                ("2026-04-01T00:05:00+00:00", 1000.17625),
+                # mark fades to 0.60 then recovers to 0.90 AFTER resolution
+                ("2026-04-01T00:06:00+00:00", 998.22625),
+                ("2026-04-01T00:07:00+00:00", 999.72625),
+            ],
+            "joint_portfolio_cash_series": [
+                ("2026-04-01T00:04:30+00:00", 1000.0),
+                ("2026-04-01T00:05:00+00:00", 995.22625),
+                ("2026-04-01T00:06:00+00:00", 995.22625),
+                ("2026-04-01T00:07:00+00:00", 995.22625),
+            ],
+            "joint_portfolio_pnl_series": [
+                ("2026-04-01T00:04:30+00:00", 0.0),
+                ("2026-04-01T00:05:00+00:00", 0.17625),
+                ("2026-04-01T00:06:00+00:00", -1.77375),
+                ("2026-04-01T00:07:00+00:00", -0.27375),
+            ],
+        }
+    )
+
+    results = apply_joint_portfolio_settlement_pnl([result])
+
+    equity = dict(results[0]["joint_portfolio_equity_series"])
+    assert equity["2026-04-01T00:05:00+00:00"] == pytest.approx(1000.22625)
+    assert equity["2026-04-01T00:06:00+00:00"] == pytest.approx(1000.22625)
+    assert equity["2026-04-01T00:07:00+00:00"] == pytest.approx(1000.22625)
+    pnl = dict(results[0]["joint_portfolio_pnl_series"])
+    assert pnl["2026-04-01T00:06:00+00:00"] == pytest.approx(0.22625)
+    assert pnl["2026-04-01T00:07:00+00:00"] == pytest.approx(0.22625)
+
+
 def test_joint_portfolio_settlement_does_not_double_count_stale_position_value() -> None:
     result = apply_binary_settlement_pnl(
         {

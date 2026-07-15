@@ -270,12 +270,48 @@ def _joint_post_settlement_delta(
     return equity_adjustment
 
 
+def _post_settlement_delta_series(
+    result: Mapping[str, Any],
+    *,
+    series_index: pd.Index,
+    timestamp: pd.Timestamp,
+    fallback_delta: float,
+) -> pd.Series | None:
+    """Per-point correction for a settled position the engine keeps marked.
+
+    For each series point after the settlement timestamp the owed correction
+    is ``settlement_pnl - mark_to_market_pnl(t)``: the resolved value is
+    frozen, so mark drift after resolution must be cancelled point by point
+    rather than with a constant computed at the settlement moment.
+    """
+    settlement_pnl = _coerce_float(result.get("pnl"))
+    if settlement_pnl is None:
+        return None
+    post_index = series_index[series_index > timestamp]
+    if post_index.empty:
+        return None
+    deltas: dict[pd.Timestamp, float] = {}
+    for point in post_index:
+        mtm = _binary_mark_to_market_pnl_at_settlement(
+            fill_events=result.get("fill_events"),
+            price_series=result.get("price_series"),
+            timestamp=pd.Timestamp(point),
+        )
+        if mtm is None:
+            deltas[pd.Timestamp(point)] = fallback_delta
+            continue
+        current_mtm_pnl, _current_cash_pnl = mtm
+        deltas[pd.Timestamp(point)] = float(settlement_pnl - current_mtm_pnl)
+    return pd.Series(deltas).sort_index()
+
+
 def _add_settlement_delta_to_equity_like_series(
     series: pd.Series,
     *,
     timestamp: pd.Timestamp,
     settlement_delta: float,
     post_settlement_delta: float,
+    post_settlement_deltas: pd.Series | None = None,
 ) -> pd.Series:
     if series.empty:
         return series
@@ -289,9 +325,13 @@ def _add_settlement_delta_to_equity_like_series(
     updated.loc[updated.index == timestamp] = updated.loc[updated.index == timestamp] + float(
         settlement_delta
     )
-    updated.loc[updated.index > timestamp] = updated.loc[updated.index > timestamp] + float(
-        post_settlement_delta
-    )
+    post_mask = updated.index > timestamp
+    if post_settlement_deltas is not None and not post_settlement_deltas.empty:
+        aligned = post_settlement_deltas.reindex(updated.index[post_mask])
+        aligned = aligned.ffill().fillna(float(post_settlement_delta))
+        updated.loc[post_mask] = updated.loc[post_mask] + aligned
+    else:
+        updated.loc[post_mask] = updated.loc[post_mask] + float(post_settlement_delta)
     return updated.astype(float)
 
 
@@ -526,17 +566,35 @@ def apply_joint_portfolio_settlement_pnl(results: Results) -> Results:
                 equity_adjustment=equity_adjustment,
                 cash_adjustment=cash_adjustment,
             )
+            if post_settlement_adjustment == cash_adjustment:
+                # Position dropped from engine equity at settlement: a flat
+                # cash restoration is exact.
+                post_deltas = None
+            else:
+                # Position KEPT marked after settlement: the resolved value is
+                # frozen, so any later mark drift is fake. Cancel it per point
+                # with the market's own price series (settlement - mtm(t));
+                # a constant computed at the settlement moment would let
+                # post-resolution rallies or fades distort the curve.
+                post_deltas = _post_settlement_delta_series(
+                    result,
+                    series_index=equity_series.index,
+                    timestamp=timestamp,
+                    fallback_delta=equity_adjustment,
+                )
             equity_series = _add_settlement_delta_to_equity_like_series(
                 equity_series,
                 timestamp=timestamp,
                 settlement_delta=equity_adjustment,
                 post_settlement_delta=post_settlement_adjustment,
+                post_settlement_deltas=post_deltas,
             )
             pnl_series = _add_settlement_delta_to_equity_like_series(
                 pnl_series,
                 timestamp=timestamp,
                 settlement_delta=equity_adjustment,
                 post_settlement_delta=post_settlement_adjustment,
+                post_settlement_deltas=post_deltas,
             )
             applied = True
 
