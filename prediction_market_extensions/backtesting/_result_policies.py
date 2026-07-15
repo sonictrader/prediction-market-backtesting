@@ -305,6 +305,47 @@ def _post_settlement_delta_series(
     return pd.Series(deltas).sort_index()
 
 
+def _final_settlement_timestamp_if_fully_settled(results: Results) -> pd.Timestamp | None:
+    """Latest settlement time when EVERY result with fills reached settlement.
+
+    Once every position in the replay is resolved, the portfolio value is
+    frozen: any later movement in the joint series is fake, whether it comes
+    from post-resolution mark drift or from the engine dropping settled
+    positions out of account equity partway through the remaining window
+    (both observed in pilot replays). Returns None when any filled result is
+    unsettled or lacks a settlement timestamp - mixed windows keep the
+    per-point correction behavior.
+    """
+    latest: pd.Timestamp | None = None
+    for result in results:
+        fill_events = result.get("fill_events")
+        if (
+            not isinstance(fill_events, Sequence)
+            or isinstance(fill_events, str | bytes)
+            or len(fill_events) == 0
+        ):
+            continue
+        if not bool(result.get("settlement_pnl_applied")):
+            return None
+        timestamp = _timestamp_utc(result.get("settlement_series_time"))
+        if timestamp is None:
+            return None
+        if latest is None or timestamp > latest:
+            latest = timestamp
+    return latest
+
+
+def _pin_series_after(series: pd.Series, *, timestamp: pd.Timestamp) -> pd.Series:
+    if series.empty:
+        return series
+    pinned_value = _series_value_at_or_before(series, timestamp)
+    if pinned_value is None:
+        return series
+    updated = series.copy()
+    updated.loc[updated.index > timestamp] = float(pinned_value)
+    return updated.astype(float)
+
+
 def _add_settlement_delta_to_equity_like_series(
     series: pd.Series,
     *,
@@ -607,6 +648,17 @@ def apply_joint_portfolio_settlement_pnl(results: Results) -> Results:
 
     if not applied:
         return results
+
+    # After the FINAL settlement of a fully-settled replay the portfolio
+    # value is frozen; pin the equity-like series flat there. The per-result
+    # corrections above assume the engine keeps settled positions marked
+    # (per-point) or drops them exactly at the settlement boundary (flat cash
+    # restore) - an engine that drops them LATER inside the window defeats
+    # both, so the pin is the backstop that makes the tail exact either way.
+    final_settlement = _final_settlement_timestamp_if_fully_settled(results)
+    if final_settlement is not None:
+        equity_series = _pin_series_after(equity_series, timestamp=final_settlement)
+        pnl_series = _pin_series_after(pnl_series, timestamp=final_settlement)
 
     if not equity_series.empty:
         joint_result["joint_portfolio_equity_series"] = _series_to_pairs(equity_series)
