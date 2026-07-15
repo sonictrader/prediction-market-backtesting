@@ -31,7 +31,6 @@ provenance notices with file-specific change dates:
 - `backtests/polymarket_beffer45_trade_replay_telonex.py`
 - `backtests/polymarket_pmxt_book_100_replay_runner.py`
 - `backtests/polymarket_pmxt_book_smoke_runner.py`
-- `backtests/private/polymarket_pmxt_eldutch_pilot_runner.py`
 - `backtests/polymarket_telonex_book_100_replay_runner.py`
 - `backtests/polymarket_telonex_book_joint_portfolio_runner.py`
 - `prediction_market_extensions/adapters/kalshi/data.py`
@@ -65,7 +64,6 @@ provenance notices with file-specific change dates:
 - `strategies/breakout.py`
 - `strategies/core.py`
 - `strategies/deep_value.py`
-- `strategies/eldutch_basket.py`
 - `strategies/ema_crossover.py`
 - `strategies/final_period_momentum.py`
 - `strategies/late_favorite_limit_hold.py`
@@ -77,7 +75,6 @@ provenance notices with file-specific change dates:
 - `tests/test_backtest_utils.py`
 - `tests/test_book_strategy_configs.py`
 - `tests/test_downsample_html_size.py`
-- `tests/test_eldutch_basket.py`
 - `tests/test_legacy_plot_fill_markers.py`
 
 Upstream lineage

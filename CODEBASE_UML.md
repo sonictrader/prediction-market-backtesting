@@ -1,8 +1,8 @@
 # Codebase UML Inventory
 
 This file is generated from Python AST metadata and excludes `tests/` plus cache, virtualenv, and dot directories.
-Generated: 2026-07-14T17:59:48+00:00
-Modules: 139 | Classes: 184 | Functions/methods: 1940
+Generated: 2026-07-15T22:53:37+00:00
+Modules: 137 | Classes: 181 | Functions/methods: 1907
 
 ## Backtesting Data Flow
 
@@ -85,12 +85,6 @@ flowchart TD
 ### `backtests/polymarket_pmxt_book_smoke_runner.py`
 - Imports: `__future__, decimal`
 - Function L33: `run() -> None`
-
-### `backtests/polymarket_pmxt_eldutch_pilot_runner.py`
-- Imports: `__future__, datetime, json, os, pathlib`
-- Function L39: `_iso(ts: int) -> str`
-- Function L43: `_load_selections() -> list[dict]`
-- Function L53: `run() -> None`
 
 ### `backtests/polymarket_telonex_book_100_replay_runner.py`
 - Imports: `__future__, decimal`
@@ -1404,17 +1398,21 @@ flowchart TD
 - Function L191: `_series_bounds(*series_values: object) -> tuple[pd.Timestamp | None, pd.Timestamp | None]`
 - Function L202: `_set_series_value_at_and_after(series: pd.Series, *, timestamp: pd.Timestamp, value: float) -> pd.Series`
 - Function L215: `_add_series_delta_at_and_after(series: pd.Series, *, timestamp: pd.Timestamp, delta: float) -> pd.Series`
-- Function L231: `_add_settlement_delta_to_equity_like_series(series: pd.Series, *, timestamp: pd.Timestamp, settlement_delta: float, post_settlement_delta: float) -> pd.Series`
-- Function L256: `_settlement_timestamp(result: Mapping[str, Any], *, settlement_observable_ns_key: str, settlement_observable_time_key: str) -> pd.Timestamp | None`
-- Function L289: `_apply_settlement_to_summary_series(result: dict[str, Any], *, settlement_pnl: float, settlement_observable_ns_key: str, settlement_observable_time_key: str) -> None`
-- Function L366: `append_result_warning(result: dict[str, Any], message: str) -> None`
-- Function L375: `apply_repo_research_disclosures(results: Results) -> Results`
-- Function L388: `apply_binary_settlement_pnl(result: dict[str, Any], *, settlement_pnl_fn: SettlementPnlFn = compute_binary_settlement_pnl, pnl_key: str = 'pnl', market_exit_pnl_key: str = 'market_exit_pnl', fill_events_key: str = 'fill_events', realized_outcome_key: str = 'realized_outcome', settlement_observable_ns_key: str = 'settlement_observable_ns', settlement_observable_time_key: str = 'settlement_observable_time', simulated_through_key: str = 'simulated_through') -> dict[str, Any]`
-- Function L449: `apply_joint_portfolio_settlement_pnl(results: Results) -> Results`
-- Class L384: `ResultPolicy(Protocol)`
-  - Method L385: `apply(self, results: Results) -> Results | None`
-- Class L521: `BinarySettlementPnlPolicy`
-  - Method L528: `apply(self, results: Results) -> Results`
+- Function L231: `_joint_post_settlement_delta(equity_series: pd.Series, *, timestamp: pd.Timestamp, equity_adjustment: float, cash_adjustment: float | None) -> float`
+- Function L273: `_post_settlement_delta_series(result: Mapping[str, Any], *, series_index: pd.Index, timestamp: pd.Timestamp, fallback_delta: float) -> pd.Series | None`
+- Function L308: `_final_settlement_timestamp_if_fully_settled(results: Results) -> pd.Timestamp | None`
+- Function L338: `_pin_series_after(series: pd.Series, *, timestamp: pd.Timestamp) -> pd.Series`
+- Function L349: `_add_settlement_delta_to_equity_like_series(series: pd.Series, *, timestamp: pd.Timestamp, settlement_delta: float, post_settlement_delta: float, post_settlement_deltas: pd.Series | None = None) -> pd.Series`
+- Function L379: `_settlement_timestamp(result: Mapping[str, Any], *, settlement_observable_ns_key: str, settlement_observable_time_key: str) -> pd.Timestamp | None`
+- Function L412: `_apply_settlement_to_summary_series(result: dict[str, Any], *, settlement_pnl: float, settlement_observable_ns_key: str, settlement_observable_time_key: str) -> None`
+- Function L489: `append_result_warning(result: dict[str, Any], message: str) -> None`
+- Function L498: `apply_repo_research_disclosures(results: Results) -> Results`
+- Function L511: `apply_binary_settlement_pnl(result: dict[str, Any], *, settlement_pnl_fn: SettlementPnlFn = compute_binary_settlement_pnl, pnl_key: str = 'pnl', market_exit_pnl_key: str = 'market_exit_pnl', fill_events_key: str = 'fill_events', realized_outcome_key: str = 'realized_outcome', settlement_observable_ns_key: str = 'settlement_observable_ns', settlement_observable_time_key: str = 'settlement_observable_time', simulated_through_key: str = 'simulated_through') -> dict[str, Any]`
+- Function L572: `apply_joint_portfolio_settlement_pnl(results: Results) -> Results`
+- Class L507: `ResultPolicy(Protocol)`
+  - Method L508: `apply(self, results: Results) -> Results | None`
+- Class L676: `BinarySettlementPnlPolicy`
+  - Method L683: `apply(self, results: Results) -> Results`
 
 ### `prediction_market_extensions/backtesting/_strategy_configs.py`
 - Imports: `__future__, collections, copy, importlib, nautilus_trader, typing`
@@ -2237,46 +2235,6 @@ flowchart TD
 - Class L88: `BookDeepValueHoldStrategy(_DeepValueHoldBase)`
   - Method L89: `_subscribe(self) -> None`
   - Method L95: `on_order_book(self, order_book) -> None`
-
-### `strategies/eldutch_basket.py`
-- Imports: `__future__, decimal, math, nautilus_trader`
-- Function L25: `_fee_for_leg(price: float, fee_rate: float) -> float`
-- Function L31: `_level_price(level: object) -> float | None`
-- Function L42: `_level_size(level: object) -> float`
-- Function L53: `considered_price(levels: list[object], *, dollar_bar: float, share_bar: float) -> tuple[float, float, str]`
-- Class L82: `ElDutchEventPortfolio`
-  - Method L93: `__init__(self, event_key: str) -> None`
-  - Method L100: `for_event(cls, event_key: str) -> ElDutchEventPortfolio`
-  - Method L107: `register(self, strategy: ElDutchBucketStrategy) -> None`
-  - Method L122: `entry_gate_ok(self, candidate: ElDutchBucketStrategy, candidate_price: float, *, max_net: float) -> bool`
-  - Method L143: `maybe_flash(self, ts_event_ns: int) -> None`
-- Class L183: `ElDutchBucketConfig(StrategyConfig)`
-  - Method L202: `__post_init__(self) -> None`
-- Class L215: `ElDutchBucketStrategy(Strategy)`
-  - Method L218: `__init__(self, config: ElDutchBucketConfig) -> None`
-  - Method L239: `position_size(self) -> float`
-  - Method L242: `avg_entry_price(self) -> float | None`
-  - Method L247: `last_best_bid(self) -> float | None`
-  - Method L250: `commit_price(self) -> float`
-  - Method L265: `on_start(self) -> None`
-  - Method L278: `on_order_book_deltas(self, deltas) -> None`
-  - Method L298: `_entry_window_open(self, ts_event_ns: int) -> bool`
-  - Method L307: `_ideal_entry_price(self) -> tuple[float | None, str]`
-  - Method L324: `_manage_buy_order(self, ts_event_ns: int) -> None`
-  - Method L350: `_patient_entry(self, ts_event_ns: int) -> None`
-  - Method L401: `_cancel_working(self, reason: str) -> None`
-  - Method L411: `_clear_working(self) -> None`
-  - Method L418: `_monitor_stop_loss(self) -> None`
-  - Method L445: `liquidate_for_flash(self) -> None`
-  - Method L456: `_submit_taker_sell(self, size: int, bid_price: float) -> None`
-  - Method L475: `on_order_accepted(self, event) -> None`
-  - Method L481: `on_order_filled(self, event) -> None`
-  - Method L510: `on_order_canceled(self, event) -> None`
-  - Method L515: `on_order_rejected(self, event) -> None`
-  - Method L520: `on_order_denied(self, event) -> None`
-  - Method L525: `on_order_expired(self, event) -> None`
-  - Method L530: `on_stop(self) -> None`
-  - Method L535: `on_reset(self) -> None`
 
 ### `strategies/ema_crossover.py`
 - Imports: `__future__, decimal, nautilus_trader, strategies, typing`

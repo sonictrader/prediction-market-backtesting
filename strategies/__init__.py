@@ -37,11 +37,6 @@ from strategies.deep_value import (
     BookDeepValueHoldConfig,
     BookDeepValueHoldStrategy,
 )
-from strategies.eldutch_basket import (
-    ElDutchBucketConfig,
-    ElDutchBucketStrategy,
-    ElDutchEventPortfolio,
-)
 from strategies.ema_crossover import (
     BarEMACrossoverConfig,
     BarEMACrossoverStrategy,
@@ -95,9 +90,6 @@ from strategies.vwap_reversion import (
 
 __all__ = [
     "BarBreakoutConfig",
-    "ElDutchBucketConfig",
-    "ElDutchBucketStrategy",
-    "ElDutchEventPortfolio",
     "BarBreakoutStrategy",
     "BarEMACrossoverConfig",
     "BarEMACrossoverStrategy",
